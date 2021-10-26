@@ -1,0 +1,18 @@
+{
+    "resourceName": "IntuneDeviceAppManagementMobileAppConfiguration",
+    "description": "This resource configures an Intune iOS Mobile Application Configuration.",
+    "permissions": [
+        {
+            "read": [
+                {
+                    "name": "DeviceManagementApps.Read.All"
+                }
+            ],
+            "update": [
+                {
+                    "name": "DeviceManagementApps.ReadWrite.All"
+                }
+            ]
+        }
+    ]
+}
