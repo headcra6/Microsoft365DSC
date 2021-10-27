@@ -237,7 +237,7 @@ function Set-TargetResource
             -Description $Description `
             -ManagedDeviceMobileAppConfigurationId $appConfiguration.Id
     }
-    elseif ($Ensure -eq 'Absent' -and $currentPolicy.Ensure -eq 'Present')
+    elseif ($Ensure -eq 'Absent' -and $currentAppConfiguration.Ensure -eq 'Present')
     {
         Write-Verbose -Message "Removing Intune iOS Application Configuration {$DisplayName}"
         $appConfiguration = Get-MgDeviceAppManagementMobileAppConfiguration -Filter "displayName eq '$DisplayName'" `
@@ -369,12 +369,14 @@ function Export-TargetResource
     $M365DSCConnectionSplat = @{
         Workload = 'MicrosoftGraph'
         InboundParameters = $PSBoundParameters
+        #InboundParameters = @{Credential = $Credential}
         ProfileName = 'Beta'
     }
     $ConnectionMode = New-M365DSCConnection @M365DSCConnectionSplat
     Select-MGProfile -Name 'Beta' | Out-Null
 
     #region Telemetry
+    #$ResourceName = "IntuneDeviceAppManagementMobileAppConfiguration"
     $ResourceName = $MyInvocation.MyCommand.ModuleName.Replace("MSFT_", "")
     $data = [System.Collections.Generic.Dictionary[[String], [String]]]::new()
     $data.Add("Resource", $ResourceName)
@@ -417,9 +419,10 @@ function Export-TargetResource
                 -Results $Results
             $currentDSCBlock = Get-M365DSCExportContentForResource -ResourceName $ResourceName `
                 -ConnectionMode $ConnectionMode `
-                -ModulePath $PSScriptRoot `
+                -ModulePath "D:\Github\Microsoft365DSC\Modules\Microsoft365DSC\DSCResources\MSFT_IntuneDeviceAppManagementMobileAppConfiguration\MSFT_IntuneDeviceAppManagementMobileAppConfiguration.psm1" `
                 -Results $Results `
                 -Credential $Credential
+                #-ModulePath $PSScriptRoot
             $dscContent += $currentDSCBlock
             Save-M365DSCPartialExport -Content $currentDSCBlock `
                 -FileName $Global:PartialExportFileName
@@ -477,4 +480,3 @@ function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationAdditionalPro
 }
 
 Export-ModuleMember -Function *-TargetResource
-
