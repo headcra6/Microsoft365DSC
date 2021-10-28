@@ -376,7 +376,6 @@ function Export-TargetResource
 
     #region Telemetry
     $ResourceName = $MyInvocation.MyCommand.ModuleName.Replace("MSFT_", "")
-    #$ResourceName = "IntuneDeviceAppManagementMobileAppConfigurationiOS"
     $data = [System.Collections.Generic.Dictionary[[String], [String]]]::new()
     $data.Add("Resource", $ResourceName)
     $data.Add("Method", $MyInvocation.MyCommand)
@@ -421,9 +420,7 @@ function Export-TargetResource
                 -ModulePath $PSScriptRoot `
                 -Results $Results `
                 -Credential $Credential
-                #-ModulePath $PSScriptRoot `
-                #-ModulePath "D:\Github\Microsoft365DSC\Modules\Microsoft365DSC\DSCResources\MSFT_IntuneDeviceAppManagementMobileAppConfigurationiOS\MSFT_IntuneDeviceAppManagementMobileAppConfigurationiOS.psm1" `
-            $dscContent += $currentDSCBlock
+           $dscContent += $currentDSCBlock
             Save-M365DSCPartialExport -Content $currentDSCBlock `
                 -FileName $Global:PartialExportFileName
             $i++
