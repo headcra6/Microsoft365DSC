@@ -268,6 +268,17 @@ Configuration Master
             ReadTrackingEnabled                                       = $False;
         }
 
+        IntuneDeviceAppManagementMobileAppConfigurationiOS IntuneDeviceAppManagementMobileAppConfigurationiOS
+        {
+            Credential           = $Credential;
+            Description          = "";
+            DisplayName          = "Apple iOS - Outlook Configuration Profile";
+            Ensure               = "Present";
+            RoleScopeTagIds      = @("0");
+            TargetedMobileApps   = @("5b0a1753-03f9-4dd8-8666-a622daf357d5");
+            Version              = 1;
+        }
+
         IntuneDeviceConfigurationPolicyAndroidWorkProfile IntuneDeviceConfigurationPolicyAndroidWorkProfile
         {
             DisplayName                                    = "Android Work Profile - Device Restrictions - Standard";
