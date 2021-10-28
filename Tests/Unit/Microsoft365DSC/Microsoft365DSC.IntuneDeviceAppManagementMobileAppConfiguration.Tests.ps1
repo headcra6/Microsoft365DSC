@@ -136,6 +136,9 @@ Describe -Name $Global:DscHelper.DescribeHeader -Fixture {
                     return @{
                         DisplayName        = 'Test Intune iOS Application Configuration'
                         Description        = 'Test Definition'
+                        AdditionalProperties = @{
+                            '@odata.type'  = '#microsoft.graph.iosMobileAppConfiguration'
+                        }
                     }
                 }
             }
