@@ -1,5 +1,5 @@
 <#
-This example creates a new Intune iOS Mobile Application Configuration.
+This example creates a new App Configuration Policy.
 #>
 
 Configuration Example

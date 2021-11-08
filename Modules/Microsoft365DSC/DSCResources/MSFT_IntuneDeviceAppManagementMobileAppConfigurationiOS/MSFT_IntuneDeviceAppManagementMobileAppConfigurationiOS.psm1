@@ -30,7 +30,7 @@ function Get-TargetResource {
 
         [Parameter()]
         [Microsoft.Management.Infrastructure.CimInstance[]]
-        $AppConfigSettings,
+        $Settings,
 
         [Parameter(Mandatory = $true)]
         [System.String]
@@ -93,8 +93,6 @@ function Get-TargetResource {
             return $nullResult
         }
 
-        $appSettings = Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalPropertiesToSettingsList -Properties $appConfiguration.AdditionalProperties
-
         Write-Verbose -Message "Found Intune iOS Application Configuration {$DisplayName}"
         return @{
             Description                                                 = $appConfiguration.Description
@@ -103,7 +101,7 @@ function Get-TargetResource {
             RoleScopeTagIds                                             = $appConfiguration.RoleScopeTagIds
             Version                                                     = $appConfiguration.Version
             EncodedSettingXml                                           = $appConfiguration.EncodedSettingXml
-            AppConfigSettings                                           = $appSettings
+            Settings                                                    = $appConfiguration.Settings
             Ensure                                                      = "Present"
             Credential                                                  = $Credential
             ApplicationId                                               = $ApplicationId
@@ -163,7 +161,7 @@ function Set-TargetResource
 
         [Parameter()]
         [Microsoft.Management.Infrastructure.CimInstance[]]
-        $AppConfigSettings,
+        $Settings,
 
         [Parameter(Mandatory = $true)]
         [System.String]
@@ -221,12 +219,9 @@ function Set-TargetResource
         Write-Verbose -Message "Creating new Intune iOS Application Configuration {$DisplayName}"
         $PSBoundParameters.Remove('DisplayName') | Out-Null
         $PSBoundParameters.Remove('Description') | Out-Null
-        $AdditionalProperties = Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettingsListToAdditionalProperties -Properties ([System.Collections.Hashtable]$AppConfigSettings)
+        $AdditionalProperties = Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalProperties -Properties ([System.Collections.Hashtable]$PSBoundParameters)
         New-MgDeviceAppManagementMobileAppConfiguration -DisplayName $DisplayName `
             -Description $Description `
-            -RoleScopeTagIds $RoleScopeTagIds `
-            -TargetedMobileApps $TargetedMobileApps `
-            -Version $Version
             -AdditionalProperties $AdditionalProperties
     }
     elseif ($Ensure -eq 'Present' -and $currentAppConfiguration.Ensure -eq 'Present')
@@ -237,13 +232,9 @@ function Set-TargetResource
 
         $PSBoundParameters.Remove('DisplayName') | Out-Null
         $PSBoundParameters.Remove('Description') | Out-Null
-        $AdditionalProperties = Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettingsListToAdditionalProperties -Properties ([System.Collections.Hashtable]$AppConfigSettings)
+        $AdditionalProperties = Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalProperties -Properties ([System.Collections.Hashtable]$PSBoundParameters)
         Update-MgDeviceAppManagementMobileAppConfiguration -AdditionalProperties $AdditionalProperties `
             -Description $Description `
-            -RoleScopeTagIds $RoleScopeTagIds `
-            -TargetedMobileApps $TargetedMobileApps `
-            -Version $Version
-            -AdditionalProperties $AdditionalProperties
             -ManagedDeviceMobileAppConfigurationId $appConfiguration.Id
     }
     elseif ($Ensure -eq 'Absent' -and $currentAppConfiguration.Ensure -eq 'Present')
@@ -289,7 +280,7 @@ function Test-TargetResource
 
         [Parameter()]
         [Microsoft.Management.Infrastructure.CimInstance[]]
-        $AppConfigSettings,
+        $Settings,
 
         [Parameter(Mandatory = $true)]
         [System.String]
@@ -462,30 +453,7 @@ function Export-TargetResource
     }
 }
 
-# function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalProperties
-# {
-#     [CmdletBinding()]
-#     [OutputType([System.Collections.Hashtable])]
-#     param(
-#         [Parameter(Mandatory = 'true')]
-#         [System.Collections.Hashtable]
-#         $Properties
-#     )
-
-#     $results = @{"@odata.type" = "#microsoft.graph.iosMobileAppConfiguration"}
-#     foreach ($property in $properties.Keys)
-#     {
-#         if ($property -ne 'Verbose')
-#         {
-#             $propertyName = $property[0].ToString().ToLower() + $property.Substring(1, $property.Length - 1)
-#             $propertyValue = $properties.$property
-#             $results.Add($propertyName, $propertyValue)
-#         }
-#     }
-#     return $results
-# }
-
-function Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettingsListToAdditionalProperties
+function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalProperties
 {
     [CmdletBinding()]
     [OutputType([System.Collections.Hashtable])]
@@ -495,44 +463,15 @@ function Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettin
         $Properties
     )
 
-    $results = @{'@odata.type' = $Properties.'@odata.type'}
-    $Properties.Remove('@odata.type')
-    $settings = @()
-    $settingsHash = @{}
-    foreach ($indexedKey in $Properties.Keys) {
-        $keyIndexPair = $indexedKey.Split("_")
-        $index = $keyIndexPair[1]
-        $key = $keyIndexPair[0]
-        If ($index) {
-            If ($settingsHash.ContainsKey($index)) {
-                $settingsHash.$index.Add($key, $Properties.$indexedKey)
-            } else {
-                $settingsHash.Add($index, @{"$key" = $Properties.$indexedKey})
-            }
+    $results = @{"@odata.type" = "#microsoft.graph.iosMobileAppConfiguration"}
+    foreach ($property in $properties.Keys)
+    {
+        if ($property -ne 'Verbose')
+        {
+            $propertyName = $property[0].ToString().ToLower() + $property.Substring(1, $property.Length - 1)
+            $propertyValue = $properties.$property
+            $results.Add($propertyName, $propertyValue)
         }
-    }
-    $settings=$settingsHash.Values
-    $results.Add('Settings',$settings)
-    return $results
-}
-
-function Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalPropertiesToSettingsList
-{
-    [CmdletBinding()]
-    [OutputType([System.Collections.Hashtable])]
-    param(
-        [Parameter(Mandatory = 'true')]
-        [System.Collections.Hashtable]
-        $Properties
-    )
-
-    $results = @{"'@odata.type'" = "#microsoft.graph.iosMobileAppConfiguration"}
-    $i=1
-    foreach ($setting in $Properties.settings) {
-        foreach ($key in $setting.Keys) {
-            $results.Add("${key}_${i}",$setting.$key)
-        }
-        $i++
     }
     return $results
 }
