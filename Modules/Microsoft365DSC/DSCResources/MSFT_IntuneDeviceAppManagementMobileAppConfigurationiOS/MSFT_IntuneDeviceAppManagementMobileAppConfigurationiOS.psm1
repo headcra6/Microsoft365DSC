@@ -93,7 +93,7 @@ function Get-TargetResource {
             return $nullResult
         }
 
-        $appSettings = Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalPropertiesToSettingsList -Properties $appConfiguration.AdditionalProperties
+        $appSettingsObj = Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettings -Properties $appConfiguration.AdditionalProperties
 
         Write-Verbose -Message "Found Intune iOS Application Configuration {$DisplayName}"
         return @{
@@ -103,7 +103,7 @@ function Get-TargetResource {
             RoleScopeTagIds                                             = $appConfiguration.RoleScopeTagIds
             Version                                                     = $appConfiguration.Version
             EncodedSettingXml                                           = $appConfiguration.EncodedSettingXml
-            AppConfigSettings                                           = $appSettings
+            AppConfigSettings                                           = $appSettingsObj
             Ensure                                                      = "Present"
             Credential                                                  = $Credential
             ApplicationId                                               = $ApplicationId
@@ -424,12 +424,22 @@ function Export-TargetResource
             $Results = Get-TargetResource @Params
             $Results = Update-M365DSCExportAuthenticationResults -ConnectionMode $ConnectionMode `
                 -Results $Results
+
+            if ($Results.AppConfigSettings.Count -gt 0) {
+                $Results.AppConfigSettings = Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettingsAsString -AppConfigSettings $Results.AppConfigSettings
+            }
+
             $currentDSCBlock = Get-M365DSCExportContentForResource -ResourceName $ResourceName `
                 -ConnectionMode $ConnectionMode `
                 -ModulePath $PSScriptRoot `
                 -Results $Results `
                 -Credential $Credential
-           $dscContent += $currentDSCBlock
+
+            if ($null -ne $Results.AppConfigSettings) {
+                $currentDSCBlock = Convert-DSCStringParamToVariable -DSCBlock $currentDSCBlock `
+                    -ParameterName "AppConfigSettings"
+            }
+            $dscContent += $currentDSCBlock
             Save-M365DSCPartialExport -Content $currentDSCBlock `
                 -FileName $Global:PartialExportFileName
             $i++
@@ -462,79 +472,49 @@ function Export-TargetResource
     }
 }
 
-# function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalProperties
-# {
-#     [CmdletBinding()]
-#     [OutputType([System.Collections.Hashtable])]
-#     param(
-#         [Parameter(Mandatory = 'true')]
-#         [System.Collections.Hashtable]
-#         $Properties
-#     )
-
-#     $results = @{"@odata.type" = "#microsoft.graph.iosMobileAppConfiguration"}
-#     foreach ($property in $properties.Keys)
-#     {
-#         if ($property -ne 'Verbose')
-#         {
-#             $propertyName = $property[0].ToString().ToLower() + $property.Substring(1, $property.Length - 1)
-#             $propertyValue = $properties.$property
-#             $results.Add($propertyName, $propertyValue)
-#         }
-#     }
-#     return $results
-# }
-
-function Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettingsListToAdditionalProperties
+function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettings
 {
     [CmdletBinding()]
-    [OutputType([System.Collections.Hashtable])]
+    [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory = 'true')]
-        [System.Collections.Hashtable]
+        [Parameter(Mandatory = $true)]
         $Properties
     )
 
-    $results = @{'@odata.type' = $Properties.'@odata.type'}
-    $Properties.Remove('@odata.type')
-    $settings = @()
-    $settingsHash = @{}
-    foreach ($indexedKey in $Properties.Keys) {
-        $keyIndexPair = $indexedKey.Split("_")
-        $index = $keyIndexPair[1]
-        $key = $keyIndexPair[0]
-        If ($index) {
-            If ($settingsHash.ContainsKey($index)) {
-                $settingsHash.$index.Add($key, $Properties.$indexedKey)
-            } else {
-                $settingsHash.Add($index, @{"$key" = $Properties.$indexedKey})
-            }
+    Write-Verbose -Message "Retrieving settings from current configuration"
+    $appConfigSettings = @()
+    foreach ($setting in $Properties.settings) {
+        $settingKeyValuePair=@{}
+        foreach ($key in $setting.Keys) {
+            $settingKeyValuePair.Add($key,$setting.$key)
         }
+        $appConfigSettings += $settingKeyValuePair
     }
-    $settings=$settingsHash.Values
-    $results.Add('Settings',$settings)
-    return $results
+
+    return $appConfigSettings
 }
 
-function Convert-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSAdditionalPropertiesToSettingsList
+function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettingsAsString
 {
     [CmdletBinding()]
-    [OutputType([System.Collections.Hashtable])]
+    [OutputType([System.String])]
     param(
-        [Parameter(Mandatory = 'true')]
-        [System.Collections.Hashtable]
-        $Properties
+        [Parameter(Mandatory = $true)]
+        [System.Collections.ArrayList]
+        $AppConfigSettings
     )
 
-    $results = @{"'@odata.type'" = "#microsoft.graph.iosMobileAppConfiguration"}
-    $i=1
-    foreach ($setting in $Properties.settings) {
-        foreach ($key in $setting.Keys) {
-            $results.Add("${key}_${i}",$setting.$key)
-        }
-        $i++
+    $stringContent = "@(`r`n"
+    foreach ($setting in $AppConfigSettings)
+    {
+        $stringContent += "`t`t`t`tMSFT_IntuneAppConfigurationSettingItem { `r`n"
+        $stringContent += "`t`t`t`t`tappConfigKey                = '" + $setting.appConfigKey + "'`r`n"
+        $stringContent += "`t`t`t`t`tappConfigKeyType            = '" + $setting.appConfigKeyType + "'`r`n"
+        $stringContent += "`t`t`t`t`tappConfigKeyValue           = '" + $setting.appConfigKeyValue + "'`r`n"
+        $StringContent += "`t`t`t`t}`r`n"
     }
-    return $results
+    $stringContent += "`t`t`t)"
+    return $stringContent
 }
 
 Export-ModuleMember -Function *-TargetResource
