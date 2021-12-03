@@ -93,9 +93,9 @@ function Get-TargetResource {
             return $nullResult
         }
 
-        $appSettingsObj = Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettings -Properties $appConfiguration.AdditionalProperties
-
         Write-Verbose -Message "Found Intune iOS Application Configuration {$DisplayName}"
+        
+        $appSettingsObj = Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettings -Properties $appConfiguration.AdditionalProperties
         return @{
             Description                                                 = $appConfiguration.Description
             DisplayName                                                 = $appConfiguration.DisplayName
@@ -103,7 +103,7 @@ function Get-TargetResource {
             #RoleScopeTagIds                                             = $appConfiguration.RoleScopeTagIds
             #Version                                                     = $appConfiguration.Version
             #EncodedSettingXml                                           = $appConfiguration.EncodedSettingXml
-            AppConfigSettings                                           = $appSettingsObj
+            AppConfigSettings                                           = $appSettingsObj.settings
             Ensure                                                      = "Present"
             Credential                                                  = $Credential
             ApplicationId                                               = $ApplicationId
@@ -222,14 +222,17 @@ function Set-TargetResource
         $PSBoundParameters.Remove('DisplayName') | Out-Null
         $PSBoundParameters.Remove('Description') | Out-Null
 
+        $AdditionalProperties = Convert-CIMInstanceArrayToAdditionalProperties -CimInstances $AppConfigSettings
+
         Write-Verbose "Display Name = $DisplayName"
         Write-Verbose "Description = $Description"
         Write-Verbose "TargetedMobileApps = $TargetedMobileApps"
         Write-Verbose "AppConfigSettings = $AppConfigSettings"
+        Write-Verbose "AdditionalProperties = $AdditionalProperties"
         New-MgDeviceAppManagementMobileAppConfiguration -DisplayName $DisplayName `
             -Description $Description `
             -TargetedMobileApps $TargetedMobileApps `
-            -AdditionalProperties $AppConfigSettings
+            -AdditionalProperties $AdditionalProperties
     }
     elseif ($Ensure -eq 'Present' -and $currentAppConfiguration.Ensure -eq 'Present')
     {
@@ -239,6 +242,10 @@ function Set-TargetResource
 
         $PSBoundParameters.Remove('DisplayName') | Out-Null
         $PSBoundParameters.Remove('Description') | Out-Null
+        Write-Verbose "Display Name = $DisplayName"
+        Write-Verbose "Description = $Description"
+        Write-Verbose "TargetedMobileApps = $TargetedMobileApps"
+        Write-Verbose "AppConfigSettings = $AppConfigSettings"
         Update-MgDeviceAppManagementMobileAppConfiguration -DisplayName $DisplayName `
             -Description $Description `
             -TargetedMobileApps $TargetedMobileApps `
@@ -326,7 +333,7 @@ function Test-TargetResource
     #endregion
     Write-Verbose -Message "Testing of Intune iOS Application Configuration {$DisplayName}"
 
-    $CurrentValues = Get-TargetResource @PSBoundParameters -Verbose
+    $CurrentValues = Get-TargetResource @PSBoundParameters
 
     Write-Verbose -Message "Current Values: $(Convert-M365DscHashtableToString -Hashtable $CurrentValues)"
     Write-Verbose -Message "Target Values: $(Convert-M365DscHashtableToString -Hashtable $PSBoundParameters)"
@@ -340,7 +347,8 @@ function Test-TargetResource
     $TestResult = Test-M365DSCParameterState -CurrentValues $CurrentValues `
         -Source $($MyInvocation.MyCommand.Source) `
         -DesiredValues $PSBoundParameters `
-        -ValuesToCheck $ValuesToCheck.Keys
+        -ValuesToCheck $ValuesToCheck.Keys `
+        -Verbose
 
     Write-Verbose -Message "Test-TargetResource returned $TestResult"
 
@@ -487,12 +495,38 @@ function Export-TargetResource
 #         $settingKeyValuePair=@{}
 #         foreach ($key in $setting.Keys) {
 #             $settingKeyValuePair.Add($key,$setting.$key)
+#             Write-Verbose -Message "Adding Setting Property [$key]"
 #         }
 #         $appConfigSettings += $settingKeyValuePair
 #     }
 #     $AdditionalProperties.Add("settings",$appConfigSettings)
 #     return $AdditionalProperties
 # }
+
+# function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettings
+# {
+#     [CmdletBinding()]
+#     [OutputType([PSCustomObject])]
+#     param(
+#         [Parameter(Mandatory = $true)]
+#         $Properties
+#     )
+
+#     Write-Verbose -Message "Retrieving settings from current configuration"
+#     $AdditionalProperties = @{"@odata.type" = "#microsoft.graph.iosMobileAppConfiguration"}
+#     $appConfigSettings = @()
+#     foreach ($setting in $Properties.settings) {
+#         $settingKeyValuePair=@{}
+#         foreach ($key in $setting.Keys) {
+#             $settingKeyValuePair.Add($key,$setting.$key)
+#             Write-Verbose -Message "Adding Setting Property [$key]"
+#         }
+#         $appConfigSettings += $settingKeyValuePair
+#     }
+#     $AdditionalProperties.Add("settings",$appConfigSettings)
+#     return $AdditionalProperties
+# }
+
 function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettings
 {
     [CmdletBinding()]
@@ -510,11 +544,37 @@ function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettings
             $propertyName = $property[0].ToString().ToLower() + $property.Substring(1, $property.Length - 1)
             $propertyValue = $properties.$property
             $results.Add($propertyName, $propertyValue)
+            Write-Verbose -Message "Adding Setting Property [$propertyName]"
         }
     }
     return $results
 }
 
+
+function Convert-CIMInstanceArrayToAdditionalProperties
+{
+    [CmdletBinding()]
+    [OutputType([System.Collections.Hashtable[]])]
+    param(
+        [Parameter(Mandatory = 'true')]
+        [Microsoft.Management.Infrastructure.CimInstance[]]
+        $CimInstances
+    )
+    $AdditionalProperties = @{"@odata.type" = "#microsoft.graph.iosMobileAppConfiguration"}
+    $settings = @()
+    foreach ($instance in $CimInstances){
+        $keys = $instance | Get-Member -MemberType Property | Select-Object -ExpandProperty Name
+        $setting = @{"@odata.type" = "#microsoft.graph.appConfigurationSettingItem"}
+        foreach ($key in $keys) {
+            If ($key -eq "PSComputerName") {continue}
+            Write-Verbose -Message "Get [$key = $($instance.$key)]"
+            $setting.Add($key,$instance.$key)
+        }
+        $settings+=$setting
+    }
+    $AdditionalProperties.Add("settings",$settings)
+    return $AdditionalProperties
+}
 function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettingsAsString
 {
     [CmdletBinding()]
@@ -522,11 +582,11 @@ function Get-M365DSCIntuneDeviceAppManagementMobileAppConfigurationiOSSettingsAs
     param(
         [Parameter(Mandatory = $true)]
         [System.Collections.ArrayList]
-        $AppConfigSettings
+        $Properties
     )
 
     $stringContent = "@(`r`n"
-    foreach ($setting in $AppConfigSettings)
+    foreach ($setting in $Properties)
     {
         $stringContent += "`t`t`t`tMSFT_IntuneAppConfigurationSettingItem { `r`n"
         $stringContent += "`t`t`t`t`tappConfigKey                = '" + $setting.appConfigKey + "'`r`n"
